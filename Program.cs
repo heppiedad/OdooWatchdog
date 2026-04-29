@@ -258,12 +258,18 @@ static async Task RaiseAlertIfDueAsync(
             return;
         }
     }
+    try
+    {
+        await SendMailAsync(config, subject, body);
+        await SetAppVarAsync(connectionString, key, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            $"Laatste alert voor {alertType}");
 
-    await SendMailAsync(config, subject, body);
-    await SetAppVarAsync(connectionString, key, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-        $"Laatste alert voor {alertType}");
-
-    LogInfo($"Alert sent. Type={alertType}");
+        LogInfo($"Alert sent. Type={alertType}");
+    }
+    catch (Exception ex)
+    {
+        LogError($"Failed to send alert email. Type={alertType}. Error: {ex.Message}");
+    }
 }
 
 static async Task<string?> GetAppVarAsync(string connectionString, string varName)
@@ -337,7 +343,8 @@ static async Task SendMailAsync(IConfiguration config, string subject, string bo
 
     using var client = new SmtpClient(smtpServer, port)
     {
-        EnableSsl = useSsl
+        EnableSsl = useSsl,
+        Timeout = 30000
     };
 
     if (!string.IsNullOrWhiteSpace(user))
